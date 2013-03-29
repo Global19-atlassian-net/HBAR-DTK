@@ -94,7 +94,7 @@ If you do a ``pip freeze``, this is what you will see::
 Install Other HBAR Prerequisites
 --------------------------------
 
-We need BLASR for the pre-assembly mapping. BLASR is included in the SMRT�
+We need BLASR for the pre-assembly mapping. BLASR is included in the SMRT(R)
 Analysis installation and is also available on github. You need to copy a blasr
 binary into your ``$HBAR_HOME/bin``::
 
