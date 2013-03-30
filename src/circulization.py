@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from pbcore.io.FastqIO import FastqReader, FastqWriter, FastqRecord
 import shlex
 import sys
@@ -5,10 +7,15 @@ import subprocess
 import os
 import re
 
-fastq_f = FastqReader(sys.argv[1])
-prepostfix_size = int(sys.argv[2])
-tmp_dir = sys.argv[3]
-output_fn = sys.argv[4]
+usage = "python circulization.py initial_contigs.fastq 20000 /tmp circulaized_contigs.fastq"
+
+try:
+    fastq_f = FastqReader(sys.argv[1])
+    prepostfix_size = int(sys.argv[2])
+    tmp_dir = sys.argv[3]
+    output_fn = sys.argv[4]
+except:
+    print usage
 
 prefix_N = re.compile("^[Nn]+")
 postfix_N = re.compile("[Nn]+$")
