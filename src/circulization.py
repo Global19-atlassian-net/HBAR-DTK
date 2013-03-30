@@ -7,7 +7,7 @@ import subprocess
 import os
 import re
 
-usage = "python circulization.py initial_contigs.fastq 20000 /tmp circulaized_contigs.fastq"
+usage = "usage: circulization.py initial_contigs.fastq 20000 /tmp circulaized_contigs.fastq"
 
 try:
     fastq_f = FastqReader(sys.argv[1])
@@ -16,6 +16,7 @@ try:
     output_fn = sys.argv[4]
 except:
     print usage
+    sys.exit(1)
 
 prefix_N = re.compile("^[Nn]+")
 postfix_N = re.compile("[Nn]+$")
