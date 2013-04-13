@@ -49,6 +49,7 @@ import glob
 import pbcore.io
 import pkg_resources
 
+
 from pypeflow.common import * 
 from pypeflow.task import PypeTaskBase
 from pypeflow.task import PypeTask, PypeShellTask
@@ -75,7 +76,19 @@ def prepare_data(self):
         i = 0
         for l in f:
             l = l.strip()
-            os.system("bash5tools.py --readType Raw --subReads --outType fasta --minReadscore %f %s --outFilePref tmp" % (RQ_threshold, l) )
+            file_ext = os.path.basename(l).split(".")[-1]
+            if file_ext == "h5":
+                os.system("bash5tools.py --readType subreads --outType fasta --minReadScore %f %s --outFilePref tmp" % (RQ_threshold, l) )
+            elif file_ext in ["fa", "fasta"]:
+                os.system("cp %s tmp.fasta" % l )
+            elif file_ext in ["fastq"]:
+                fq = pbcore.io.FastqReader(l)
+                with open("tmp.fasta","w") as tmpf:
+                    for r in fq:
+                        print >> tmpf, ">" + r.name
+                        print >> tmpf, r.sequence
+                fq.file.close()
+
             tmpfa = pbcore.io.FastaReader("tmp.fasta")
             for r in tmpfa:
                 r_id = "%s_%07d" %  (hex(zlib.adler32(r.name+r.sequence) & 0xffffffff), i)
@@ -83,6 +96,7 @@ def prepare_data(self):
                 nfasta.write( ">%s\n" % r_id )
                 nfasta.write( "%s\n" % r.sequence.upper() )
                 i+=1               
+            tmpfa.file.close()
             os.system("rm tmp.fasta")
 
 def prepare_seed_reads(self):
