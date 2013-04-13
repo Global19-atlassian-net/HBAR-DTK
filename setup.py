@@ -24,8 +24,9 @@ setup(
                   ('etc', ['LICENCES'])],
     zip_safe = False,
     install_requires=[
-           "pbcore >= 0.1",
+           "pbcore >= 0.6.1",
            "pypeflow == 0.1.0",
-           "pbtools.pbdagcon >= 0.2.1"
+           "pbtools.pbdagcon >= 0.2.1",
+           "pbtools.pbh5tools >= 0.75.0"
     ]
     )
