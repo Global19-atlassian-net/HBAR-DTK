@@ -110,7 +110,6 @@ def query_filter(self):
     #print [fn(f) for f in self.inputs.values()]
     output_dir = self.parameters["mapping_data_dir"]
     q_sn = self.parameters["q_sn"]
-    print "%d is running" % q_sn
     script_fn = os.path.join( output_dir, "qf%05d.sh" % q_sn)
     qf_fofn = os.path.join( output_dir, "qf%05d_input.fofn" % (q_sn, ) )
     with open(script_fn,"w") as script_file:
@@ -126,7 +125,41 @@ def query_filter(self):
     os.system(sge_cmd)
     wait_for_file( fn(self.job_done) )
 
+def get_preads(self):
+    """python get_pr_reads.py fasta_files/queries.fofn fasta_files/targets.fofn qf.fofn 12 0 100 10 48 50 50 16 /out /tmp"""
+    q_fofn_fn = fn( self.query_fa_fofn )
+    t_fofn_fn = fn( self.target_fa_fofn )
+    qm4_fofn_fn = fn( self.qm4_fofn)
+    md_dir = self.parameters["mapping_data_dir"]
+    pa_dir = self.parameters["pa_dir"] 
+    pa_chunk = self.parameters["pa_chunk"]
+    config = self.parameters["config"]
+    min_cov = config["min_cov"]
+    max_cov = config["max_cov"]
+    trim_align = config["trim_align"]
+    trim_plr = config["trim_plr"]
+    nproc = config["q_nproc"]
+    tmp_dir = config["big_tmpdir"]
+    bestn = config["bestn"]
+    preassembly_num_chunk = config["preassembly_num_chunk"]
+    print "%d pa chunk" % pa_chunk
 
+    
+    script_fn = os.path.join( pa_dir, "pa%05d.sh" % pa_chunk)
+    with open(script_fn,"w") as script_file:
+        script_file.write("source /mnt/secondary/Share/HBAR_03202013/bin/activate\n")
+        script_file.write("""get_preads.py %s %s %s %d %d %d %d %d %d %d %d %s %s\n""" % (q_fofn_fn, t_fofn_fn, qm4_fofn_fn,
+                                                                                          bestn, pa_chunk, preassembly_num_chunk,
+                                                                                          min_cov, max_cov, trim_align, trim_plr,
+                                                                                          nproc, pa_dir, tmp_dir ))
+        script_file.write("""touch %s\n""" % fn(self.pa_job_done) )
+
+    sge_cmd="qsub -N {jn} -pe smp 8 -q fas -o {cwd}/sge_log -j y\
+             -S /bin/bash {script}".format(jn="pa_test",  cwd=os.getcwd(), script=script_fn)
+
+    os.system(sge_cmd)
+    wait_for_file( fn(self.pa_job_done) )
+    
 
 def get_config(config_fn):
 
@@ -206,6 +239,14 @@ def get_config(config_fn):
     if config.has_option('General', 'q_proc'):
         q_nproc = config.getint('General', 'q_proc')
 
+    q_chunk_size = 2
+    if config.has_option('General', 'q_chunk_size'):
+        q_chunk_size = config.getint('General', 'q_chunk_size')
+
+    t_chunk_size = 10 
+    if config.has_option('General', 't_chunk_size'):
+        t_chunk_size = config.getint('General', 't_chunk_size')
+
     SYMOURE_HOME = config.get("General", "SEYMOUR_HOME")
     hgap_config = {"input_fofn_fn" : input_fofn_fn,
                    "length_cutoff" : length_cutoff,
@@ -228,9 +269,12 @@ def get_config(config_fn):
                    "max_cov": max_cov,
                    "trim_align": trim_align,
                    "trim_plr": trim_plr,
-                   "q_nproc": q_nproc}
+                   "q_nproc": q_nproc,
+                   "q_chunk_size": q_chunk_size,
+                   "t_chunk_size": t_chunk_size}
     
     return hgap_config
+
 
 
 if __name__ == '__main__':
@@ -242,11 +286,12 @@ if __name__ == '__main__':
     
     dist_map_dir = os.path.abspath("./dist_map")
     fasta_dir = os.path.abspath("./fasta_files")
+    pa_dir = os.path.abspath("./preads")
     script_dir = os.path.abspath("./scripts")
     celera_asm_dir  = os.path.abspath("./CA")
     sge_log_dir = os.path.abspath("./sge_log")
 
-    for d in (dist_map_dir, fasta_dir, script_dir, celera_asm_dir,  sge_log_dir):
+    for d in (dist_map_dir, fasta_dir, pa_dir, script_dir, celera_asm_dir,  sge_log_dir):
         try:
             os.makedirs(d)
         except:
@@ -257,6 +302,8 @@ if __name__ == '__main__':
     PypeThreadWorkflow.setNumThreadAllowed(8, 8)
     wf = PypeThreadWorkflow()
 
+
+    #### Task to convert bas.h5 and bax.h5 to fasta files, it will generates two fofn files for the queries and targets
     input_h5_fofn = makePypeLocalFile(os.path.abspath( config["input_fofn_fn"] ))
     query_fa_fofn = makePypeLocalFile( os.path.join( fasta_dir, "queries.fofn" ) )
     target_fa_fofn = makePypeLocalFile( os.path.join( fasta_dir, "targets.fofn" ) )
@@ -285,6 +332,7 @@ if __name__ == '__main__':
     wf.refreshTargets([fasta_dump_done])
 
      
+    #### Task to split the fofn file into small chunks for parallel processing
     split_fofn_done = makePypeLocalFile(os.path.abspath( os.path.join( dist_map_dir, "split_fofn_done") ) )
 
     @PypeTask(inputs = {"target_fa_fofn": target_fa_fofn,
@@ -293,14 +341,20 @@ if __name__ == '__main__':
               parameters = {"config":config, "dist_map_dir": dist_map_dir},
               TaskType = PypeThreadTaskBase)
     def split_fofn_task(self):
-        split_fofn( fn(self.query_fa_fofn), self.parameters["dist_map_dir"], "query", 2, incremental = True, allow_fraction = True)
-        split_fofn( fn(self.target_fa_fofn), self.parameters["dist_map_dir"], "target", 2, incremental = True, allow_fraction = True)
+        query_chunk_size = self.parameters["config"]["q_chunk_size"]
+        target_chunk_size = self.parameters["config"]["t_chunk_size"]
+        split_fofn( fn(self.query_fa_fofn), self.parameters["dist_map_dir"], "query", query_chunk_size, 
+                    incremental = True, allow_fraction = True)
+        split_fofn( fn(self.target_fa_fofn), self.parameters["dist_map_dir"], "target", target_chunk_size, 
+                    incremental = True, allow_fraction = True)
 
         os.system("touch %s" % fn(self.split_fofn_done))
 
     wf.addTasks([split_fofn_task])
     wf.refreshTargets([split_fofn_done])
 
+
+    #### According to the split fofn, generate the targets sequence files and suffix array database
     gather_targets_done = makePypeLocalFile(os.path.abspath( os.path.join( dist_map_dir, "gather_target_done") ) )
 
     @PypeTask(inputs = {"split_fofn_done": split_fofn_done},
@@ -332,20 +386,9 @@ if __name__ == '__main__':
                 
     wf.addTasks([gather_targets])
     wf.refreshTargets([gather_targets_done])
-#if 0:
-#    sys.exit(0)
 
 
-
-
-
-
-
-
-
-
-
-#==================================================================================
+    #### Submit the MxN mapping jobs
     q_re = re.compile( r"query_([0-9]*).fofn"  )
     t_re = re.compile( r"target_([0-9]*).fa"  )
     query_fofns  = glob.glob(os.path.join(dist_map_dir, "query_[0-9]*.fofn"))
@@ -354,6 +397,7 @@ if __name__ == '__main__':
     target_fa.sort()
 
     URL_to_object = {}
+    all_qf_out = {}
 
     for q_fofn in query_fofns:
         q_dir, q_basename = os.path.split(q_fofn)
@@ -414,6 +458,9 @@ if __name__ == '__main__':
 
         qf_out = os.path.join( mapping_data_dir, "qf%05d.m4" % q_sn ) 
         qf_out = makePypeLocalFile( qf_out )
+
+        all_qf_out["qf_out_%s" % q_sn] = qf_out
+
         job_done = os.path.join( mapping_data_dir, "qf%05d_done" % q_sn ) 
         job_done = makePypeLocalFile(job_done)
         parameters = { "mapping_data_dir": mapping_data_dir, "q_sn": q_sn }
@@ -425,4 +472,42 @@ if __name__ == '__main__':
         qf_task = make_qf_task(query_filter)
         wf.addTask(qf_task)
 
+    #### END: Submit the MxN mapping jobs
+
+    qm4_fofn = os.path.join( pa_dir, "m4_files.fofn") 
+    qm4_fofn = makePypeLocalFile( qm4_fofn )
+    @PypeTask(inputs = all_qf_out, 
+              outputs = {"qm4_fofn": qm4_fofn},   
+              TaskType = PypeThreadTaskBase)
+    def gather_qm4(self):
+        all_qf = all_qf_out.values()
+        all_qf.sort()
+        with open( fn( self.qm4_fofn ),"w" ) as f:
+            for m4f in all_qf:
+                print >> f, fn(m4f_fofn)
+    wf.addTask(gather_qm4)
+
+    
+    ### Submit pre-assembly jobs
+
+    inputs = {"target_fa_fofn": target_fa_fofn,
+              "query_fa_fofn":  query_fa_fofn,
+              "qm4_fofn":qm4_fofn}
+
+    for pa_chunk in range(config["preassembly_num_chunk"]): #...
+        pa_job_done = os.path.join( pa_dir, "pa_%05d_done" % pa_chunk ) 
+        pa_job_done = makePypeLocalFile( pa_job_done )
+        pa_out = os.path.join( pa_dir, "pread_%05d.fa" % pa_chunk )
+        pa_out = makePypeLocalFile( pa_out )
+        make_pread_task = PypeTask(inputs = inputs,
+                                   outputs = {"pa_job_done": pa_job_done,
+                                              "pa_out": pa_out},   
+                                   parameters = {"config":config, "pa_chunk":pa_chunk, "mapping_data_dir": mapping_data_dir, "pa_dir": pa_dir},
+                                   URL = "task://localhost/pa_task_%05d" % pa_chunk,
+                                   TaskType = PypeThreadTaskBase)
+
+        pread_task = make_pread_task( get_preads )
+        wf.addTask( pread_task )
+        
+    # run everything to the end
     wf.refreshTargets()

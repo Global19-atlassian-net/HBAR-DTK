@@ -11,6 +11,7 @@ setup(
     namespace_packages = ['pbtools'],
     scripts = ["src/HBAR_WF.py", 
                "src/generate_preassemble_reads.py",
+               "src/get_preads.py",
                "src/filterM4Query.py",
                "src/tig-sense_p.py",
                "src/tig-sense.py",

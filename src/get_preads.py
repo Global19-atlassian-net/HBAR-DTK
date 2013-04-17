@@ -67,7 +67,7 @@ max_cov = int(sys.argv[8])
 trim_align = int(sys.argv[9])
 trim_plr = int(sys.argv[10])
 nproc = int(sys.argv[11])
-output_dir = int(sys.argv[12])
+output_file = sys.argv[12]
 tmpdir = sys.argv[13]
 
 pa_dir = "/%s/pa_%s" % (tmpdir, str(uuid.uuid4()))
@@ -235,13 +235,13 @@ for id2 in target_to_query:
     if len(read_data) > 5:
         ec_data.append( (ref_data, read_data, 1.0 * total_bases/ref_len) )
 
-output_pread_fn = os.path.join( output_dir, "p_reads_%02d.fa" % group_id )
+output_dir,dumb = os.path.split( os.path.abspath( output_file ) )
 output_log_fn = os.path.join( output_dir, "j%02d.log" % group_id )
 
-log_file = open( output_log_fn, "w") )
+log_file = open( output_log_fn, "w") 
 print >>output_log_fn, len(ec_data)
 
-with open(output_pread_fn, "w") as f:
+with open(output_file, "w") as f:
     i = 1
     for res in exe_pool.imap(get_ec_reads, ec_data):
         if len(res[1]) > 500:
