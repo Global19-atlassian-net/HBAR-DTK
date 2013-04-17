@@ -99,7 +99,8 @@ class H5FofnToFastaRunner(PBToolRunner):
                             if len(r.sequence) < self.args.minlen:
                                 continue
                             zmw_id = r.name.split("/")[1]
-                            r_id = movie_name_md5 + "_" + zmw_id
+                            subread_start = r.name.split("/")[2].split("_")[0]
+                            r_id = movie_name_md5 + "_" + zmw_id + "_" +subread_start
                             print >> o_q, ">" + r_id
                             print >> o_q, r.sequence
                             if len(r.sequence) >= self.args.min_seed_len:

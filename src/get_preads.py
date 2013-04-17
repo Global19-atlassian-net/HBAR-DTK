@@ -41,6 +41,7 @@ import sys
 import glob
 import pkg_resources
 import uuid
+from datetime import datetime
 
 from collections import Counter
 from multiprocessing import Pool
@@ -92,7 +93,6 @@ def get_ec_reads(input_data):
             print >>f, d[1]
     
     #os.system("cd %s; q-sense.py r read_%s.fa ref_%s.fa --min_cov %d --max_cov %d --cname %s --max_n_reads 500  -o %s_consensus --nproc %d" % (pa_dir, ref_id, ref_id, min_cov, max_cov, ref_id, ref_id, nproc) )  
-
 
     input_fasta_name = os.path.join(pa_dir, "read_%s.fa" % ref_id)
     ref_fasta_name = os.path.join(pa_dir, "ref_%s.fa" % ref_id)
@@ -239,7 +239,7 @@ output_dir,dumb = os.path.split( os.path.abspath( output_file ) )
 output_log = open ( os.path.join( output_dir, "j%02d.log" % group_id ), "w" )
 
 print >>output_log, len(ec_data)
-
+print >>output_log, "start: " + str(datetime.now())
 with open(output_file, "w") as f:
     i = 1
     for res in exe_pool.imap(get_ec_reads, ec_data):
@@ -247,12 +247,15 @@ with open(output_file, "w") as f:
             print >>f, ">"+res[0]
             print >>f, res[1][trim_plr:-trim_plr]
             if i % 100 == 0:
+                f.flush()
                 os.fsync(f.fileno()) 
         print >> output_log, "+", i, res[0], len(res[1]), res[2]
         if i % 100 == 0:
-            sys.stdout.flush()
+            output_log.flush()
+            os.fsync(output_log.fileno())
         i += 1
 
+print >>output_log, "end: " + str(datetime.now())
 output_log.close()
 
 

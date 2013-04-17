@@ -22,13 +22,14 @@ if log:
 
 def wait_for_file(filename):
     while 1:
-        time.sleep(2)
+        time.sleep(10)
         if os.path.exists(filename):
             break
 
-
 def split_fofn( input_fofn, out_dir, prefix, size_of_chunk, incremental = True, allow_fraction = True):
+
     input_fn = set()
+
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
@@ -81,8 +82,8 @@ def split_fofn( input_fofn, out_dir, prefix, size_of_chunk, incremental = True, 
                     out_f.write(new_fn[j]+"\n")
             new_sn += 1
 
-
 def blasr_align(self):
+
     q_fofn = self.query_fofn
     target_fa = self.target_fa
     target_sa = self.target_sa
@@ -91,19 +92,31 @@ def blasr_align(self):
     t_sn = self.parameters["t_sn"]
     out_fn = os.path.join( output_dir, "q%05d_t%05d.m4" % (q_sn, t_sn))
     script_fn = os.path.join( output_dir, "q%05d_t%05d.sh" % (q_sn, t_sn))
-    blasr_cmd = """blasr %s %s -sa %s -noSplitSubreads -bestn 16 -nCandidates 32 -maxScore -1000 -minMatch 12 -maxLCPLength 15 -nproc 16 -m 4 -out %s""" % (fn(q_fofn), fn(target_fa), fn(target_sa), out_fn)
+    config = self.parameters["config"]
+    blasr_opt = config["blasr_opt"]
+    sge_option_dm = config["sge_option_dm"]
+    install_prefix = config["install_prefix"]
+
+    #blasr_cmd = """blasr %s %s -sa %s -noSplitSubreads -bestn 16 -nCandidates 32 -maxScore -1000 -minMatch 12 -maxLCPLength 15 -nproc 16 -m 4 -out %s""" % (fn(q_fofn), fn(target_fa), fn(target_sa), out_fn)
+
+    blasr_cmd = """blasr {query} {target} -sa {target_sa} {blasr_opt} -noSplitSubreads -m 4 -out {out_fn}"""
+    blasr_cmd = blasr_cmd.format( query=fn(q_fofn), target=fn(target_fa), target_sa=fn(target_sa), blasr_opt = blasr_opt, out_fn=out_fn )
+                                                                                                                     
 
     with open(script_fn,"w") as script_file:
-        script_file.write("source /mnt/secondary/Share/HBAR_03202013/bin/activate\n")
+        script_file.write("source {install_prefix}/bin/activate\n".format(install_prefix = install_prefix))
         script_file.write(blasr_cmd+"\n")
         script_file.write("touch %s" % fn(self.job_done))
 
-    sge_cmd="qsub -N {jn} -pe smp 16 -q fas  -o {cwd}/sge_log -j y\
-             -S /bin/bash {script}".format(jn="dm_test",  cwd=os.getcwd(), script=script_fn)
+    job_name = self.URL.split("/")[-1]
+    sge_cmd="qsub -N {job_name} {sge_option_dm} -o {cwd}/sge_log -j y\
+             -S /bin/bash {script}".format(job_name=job_name,  
+                                           cwd=os.getcwd(), 
+                                           sge_option_dm=sge_option_dm, 
+                                           script=script_fn)
 
-    os.system(sge_cmd)
+    os.system( sge_cmd )
     wait_for_file( fn(self.job_done) )
-
 
 def query_filter(self):
     #print self.parameters
@@ -112,21 +125,29 @@ def query_filter(self):
     q_sn = self.parameters["q_sn"]
     script_fn = os.path.join( output_dir, "qf%05d.sh" % q_sn)
     qf_fofn = os.path.join( output_dir, "qf%05d_input.fofn" % (q_sn, ) )
+    install_prefix = config["install_prefix"]
+    sge_option_qf = config["sge_option_qf"]
+    length_cutoff_pr = config["length_cutoff_pr"]
+    bestn = config["bestn"]
+
     with open(script_fn,"w") as script_file:
-        script_file.write("source /mnt/secondary/Share/HBAR_03202013/bin/activate\n")
+        script_file.write("source {install_prefix}/bin/activate\n".format(install_prefix = install_prefix))
         script_file.write("""find %s -name "q[0-9]*_t[0-9]*.m4" > %s\n""" % (output_dir, qf_fofn))
-        script_file.write("""filterM4Query.py %s 1 0 48 4000 %s\n""" % (qf_fofn, fn(self.qf_out) ))
+        script_file.write("""query_m4_filtering.py %s 1 0 %d %d %s\n""" % (qf_fofn, bestn, length_cutoff_pr, fn(self.qf_out) ))
         script_file.write("""touch %s\n""" % fn(self.job_done) )
 
-    sge_cmd="qsub -N {jn} -pe smp 1 -q fas -o {cwd}/sge_log -j y\
-             -S /bin/bash {script}".format(jn="qf_test",  cwd=os.getcwd(), script=script_fn)
+    job_name = self.URL.split("/")[-1]
+    sge_cmd="qsub -N {job_name} {sge_option_qf} -o {cwd}/sge_log -j y\
+            -S /bin/bash {script}".format(job_name = job_name, 
+                                          sge_option_qf = sge_option_qf,  
+                                          cwd = os.getcwd(), 
+                                          script = script_fn)
     #os.system("sleep 5; touch %s" % fn(self.qf_out))
     #os.system("sleep 5; touch %s" % fn(self.job_done))
     os.system(sge_cmd)
     wait_for_file( fn(self.job_done) )
 
 def get_preads(self):
-    """python get_pr_reads.py fasta_files/queries.fofn fasta_files/targets.fofn qf.fofn 12 0 100 10 48 50 50 16 /out /tmp"""
     q_fofn_fn = fn( self.query_fa_fofn )
     t_fofn_fn = fn( self.target_fa_fofn )
     qm4_fofn_fn = fn( self.qm4_fofn)
@@ -140,28 +161,32 @@ def get_preads(self):
     trim_align = config["trim_align"]
     trim_plr = config["trim_plr"]
     nproc = config["q_nproc"]
-    tmp_dir = config["big_tmpdir"]
+    tmp_dir = config["tmpdir"]
     bestn = config["bestn"]
     preassembly_num_chunk = config["preassembly_num_chunk"]
-    print "%d pa chunk" % pa_chunk
+    install_prefix = config["install_prefix"]
+    sge_option_pa = config["sge_option_pa"]
 
     
     script_fn = os.path.join( pa_dir, "pa%05d.sh" % pa_chunk)
     with open(script_fn,"w") as script_file:
-        script_file.write("source /mnt/secondary/Share/HBAR_03202013/bin/activate\n")
+        script_file.write("source {install_prefix}/bin/activate\n".format(install_prefix = install_prefix))
         script_file.write("""get_preads.py %s %s %s %d %d %d %d %d %d %d %d %s %s\n""" % (q_fofn_fn, t_fofn_fn, qm4_fofn_fn,
                                                                                           bestn, pa_chunk, preassembly_num_chunk,
                                                                                           min_cov, max_cov, trim_align, trim_plr,
                                                                                           nproc, fn(pa_out), tmp_dir ))
         script_file.write("""touch %s\n""" % fn(self.pa_job_done) )
 
-    sge_cmd="qsub -N {jn} -pe smp 8 -q fas -o {cwd}/sge_log -j y\
-             -S /bin/bash {script}".format(jn="pa_test",  cwd=os.getcwd(), script=script_fn)
+    job_name = self.URL.split("/")[-1]
+    sge_cmd="qsub -N {job_name} {sge_option_pa} -o {cwd}/sge_log -j y\
+             -S /bin/bash {script}".format(job_name=job_name, 
+                                           sge_option_pa = sge_option_pa,  
+                                           cwd=os.getcwd(), 
+                                           script=script_fn)
 
     os.system(sge_cmd)
     wait_for_file( fn(self.pa_job_done) )
     
-
 def get_config(config_fn):
 
     import ConfigParser
@@ -253,7 +278,7 @@ def get_config(config_fn):
                    "length_cutoff" : length_cutoff,
                    "length_cutoff_pr" : length_cutoff_pr,
                    "sge_option_dm": config.get('General', 'sge_option_dm'),
-                   "sge_option_mf": config.get('General', 'sge_option_mf'),
+                   "sge_option_qf": config.get('General', 'sge_option_qf'),
                    "sge_option_pa": config.get('General', 'sge_option_pa'),
                    "sge_option_ca": config.get('General', 'sge_option_ca'),
                    "sge_option_qv": config.get('General', 'sge_option_qv'),
@@ -273,9 +298,10 @@ def get_config(config_fn):
                    "q_nproc": q_nproc,
                    "q_chunk_size": q_chunk_size,
                    "t_chunk_size": t_chunk_size}
+
+    hgap_config["install_prefix"] = sys.prefix
     
     return hgap_config
-
 
 
 if __name__ == '__main__':
@@ -285,11 +311,11 @@ if __name__ == '__main__':
         print "example: HGAP.py HGAP_run.cfg"
         sys.exit(1)
     
-    dist_map_dir = os.path.abspath("./dist_map")
-    fasta_dir = os.path.abspath("./fasta_files")
-    pa_dir = os.path.abspath("./preads")
+    fasta_dir = os.path.abspath("./0-fasta_files")
+    dist_map_dir = os.path.abspath("./1-dist_map")
+    pa_dir = os.path.abspath("./2-preads")
+    celera_asm_dir  = os.path.abspath("./3-CA")
     script_dir = os.path.abspath("./scripts")
-    celera_asm_dir  = os.path.abspath("./CA")
     sge_log_dir = os.path.abspath("./sge_log")
 
     for d in (dist_map_dir, fasta_dir, pa_dir, script_dir, celera_asm_dir,  sge_log_dir):
@@ -320,7 +346,7 @@ if __name__ == '__main__':
               parameters = parameters,
               TaskType = PypeThreadTaskBase)
     def h5fofn_to_fasta(self):
-        os.system("python h5fofn_to_fasta.py %s %s --min_seed_length %d --min_read_score %f" %\
+        os.system("h5fofn_to_fasta.py %s %s --min_seed_length %d --min_read_score %f" %\
                    (fn(self.input_fofn), 
                     self.parameters["fasta_dir"], 
                     self.parameters["min_seed_length"], 
@@ -330,7 +356,7 @@ if __name__ == '__main__':
         os.system("touch %s" % fn(self.fasta_dump_done))
 
     wf.addTasks([h5fofn_to_fasta])
-    wf.refreshTargets([fasta_dump_done])
+    #wf.refreshTargets([fasta_dump_done])
 
      
     #### Task to split the fofn file into small chunks for parallel processing
@@ -352,7 +378,7 @@ if __name__ == '__main__':
         os.system("touch %s" % fn(self.split_fofn_done))
 
     wf.addTasks([split_fofn_task])
-    wf.refreshTargets([split_fofn_done])
+    #wf.refreshTargets([split_fofn_done])
 
 
     #### According to the split fofn, generate the targets sequence files and suffix array database
@@ -386,7 +412,7 @@ if __name__ == '__main__':
 
                 
     wf.addTasks([gather_targets])
-    wf.refreshTargets([gather_targets_done])
+    #wf.refreshTargets([gather_targets_done])
 
 
     #### Submit the MxN mapping jobs
@@ -442,9 +468,9 @@ if __name__ == '__main__':
             job_done = makePypeLocalFile( job_done)
             query_group_done["q%05d_t%05d_done" % (q_sn, t_sn)] = job_done
 
-            inputs = { "query_fofn" : q_fofn, "target_fa": t_fa, "target_sa": t_sa }
+            inputs = { "query_fofn" : q_fofn, "target_fa": t_fa, "target_sa": t_sa, "gather_targets_done": gather_targets_done }
             outputs = { "job_done": job_done }
-            parameters = { "mapping_data_dir": mapping_data_dir, "q_sn": q_sn, "t_sn": t_sn }
+            parameters = { "mapping_data_dir": mapping_data_dir, "q_sn": q_sn, "t_sn": t_sn, "config":config }
         
             #for testing 
             #task_decorator = PypeTask(inputs = inputs, outputs = outputs, parameters = parameters, TaskType = PypeTaskBase )
@@ -481,11 +507,11 @@ if __name__ == '__main__':
               outputs = {"qm4_fofn": qm4_fofn},   
               TaskType = PypeThreadTaskBase)
     def gather_qm4(self):
-        all_qf = all_qf_out.values()
+        all_qf = [fn(o) for o in self.inputs.values()]
         all_qf.sort()
         with open( fn( self.qm4_fofn ),"w" ) as f:
             for m4f in all_qf:
-                print >> f, fn(m4f)
+                print >> f, m4f
     wf.addTask(gather_qm4)
 
     
@@ -494,7 +520,7 @@ if __name__ == '__main__':
     inputs = {"target_fa_fofn": target_fa_fofn,
               "query_fa_fofn":  query_fa_fofn,
               "qm4_fofn":qm4_fofn}
-
+    all_pa_out = {}
     for pa_chunk in range(config["preassembly_num_chunk"]): #...
         pa_job_done = os.path.join( pa_dir, "pa_%05d_done" % pa_chunk ) 
         pa_job_done = makePypeLocalFile( pa_job_done )
@@ -506,9 +532,32 @@ if __name__ == '__main__':
                                    parameters = {"config":config, "pa_chunk":pa_chunk, "mapping_data_dir": mapping_data_dir, "pa_dir": pa_dir},
                                    URL = "task://localhost/pa_task_%05d" % pa_chunk,
                                    TaskType = PypeThreadTaskBase)
-
+        all_pa_out["pa_out_%05d" % pa_chunk] = pa_out
         pread_task = make_pread_task( get_preads )
         wf.addTask( pread_task )
         
-    # run everything to the end
-    wf.refreshTargets()
+    pr_fofn = os.path.join( pa_dir, "pr_fastq.fofn") 
+    pr_fofn = makePypeLocalFile( pr_fofn )
+    @PypeTask(inputs = all_pa_out, 
+              outputs = {"pr_fofn": pr_fofn},   
+              TaskType = PypeThreadTaskBase)
+    def gather_pr(self):
+        all_pr = [fn(o) for o in self.inputs.values()]
+        all_pr.sort()
+        with open( fn( self.pr_fofn ),"w" ) as f:
+            for fqn in all_pr:
+                print >> f, fqn
+    wf.addTask(gather_pr)
+
+    with open("./workflow.dot","w") as f:
+        print >>f, wf.graphvizShortNameDot
+
+    if config["target"] == "mapping":
+        wf.refreshTargets([qm4_fofn])
+    elif config["target"] == "pre_assembly":
+        wf.refreshTargets([pr_fofn])
+    else:
+        wf.refreshTargets() #all
+
+    with open("./workflow.dot","w") as f:
+        print >>f, wf.graphvizShortNameDot
