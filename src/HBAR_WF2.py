@@ -132,6 +132,7 @@ def get_preads(self):
     qm4_fofn_fn = fn( self.qm4_fofn)
     md_dir = self.parameters["mapping_data_dir"]
     pa_dir = self.parameters["pa_dir"] 
+    pa_out = self.pa_out 
     pa_chunk = self.parameters["pa_chunk"]
     config = self.parameters["config"]
     min_cov = config["min_cov"]
@@ -151,7 +152,7 @@ def get_preads(self):
         script_file.write("""get_preads.py %s %s %s %d %d %d %d %d %d %d %d %s %s\n""" % (q_fofn_fn, t_fofn_fn, qm4_fofn_fn,
                                                                                           bestn, pa_chunk, preassembly_num_chunk,
                                                                                           min_cov, max_cov, trim_align, trim_plr,
-                                                                                          nproc, pa_dir, tmp_dir ))
+                                                                                          nproc, fn(pa_out), tmp_dir ))
         script_file.write("""touch %s\n""" % fn(self.pa_job_done) )
 
     sge_cmd="qsub -N {jn} -pe smp 8 -q fas -o {cwd}/sge_log -j y\
@@ -484,7 +485,7 @@ if __name__ == '__main__':
         all_qf.sort()
         with open( fn( self.qm4_fofn ),"w" ) as f:
             for m4f in all_qf:
-                print >> f, fn(m4f_fofn)
+                print >> f, fn(m4f)
     wf.addTask(gather_qm4)
 
     

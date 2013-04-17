@@ -236,10 +236,9 @@ for id2 in target_to_query:
         ec_data.append( (ref_data, read_data, 1.0 * total_bases/ref_len) )
 
 output_dir,dumb = os.path.split( os.path.abspath( output_file ) )
-output_log_fn = os.path.join( output_dir, "j%02d.log" % group_id )
+output_log = open ( os.path.join( output_dir, "j%02d.log" % group_id ), "w" )
 
-log_file = open( output_log_fn, "w") 
-print >>output_log_fn, len(ec_data)
+print >>output_log, len(ec_data)
 
 with open(output_file, "w") as f:
     i = 1
@@ -249,12 +248,12 @@ with open(output_file, "w") as f:
             print >>f, res[1][trim_plr:-trim_plr]
             if i % 100 == 0:
                 os.fsync(f.fileno()) 
-        print >> log_file, "+", i, res[0], len(res[1]), res[2]
+        print >> output_log, "+", i, res[0], len(res[1]), res[2]
         if i % 100 == 0:
             sys.stdout.flush()
         i += 1
 
-log_file.close()
+output_log.close()
 
 
 
