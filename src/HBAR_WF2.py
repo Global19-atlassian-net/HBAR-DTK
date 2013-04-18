@@ -151,7 +151,6 @@ def get_preads(self):
     q_fofn_fn = fn( self.query_fa_fofn )
     t_fofn_fn = fn( self.target_fa_fofn )
     qm4_fofn_fn = fn( self.qm4_fofn)
-    md_dir = self.parameters["mapping_data_dir"]
     pa_dir = self.parameters["pa_dir"] 
     pa_out = self.pa_out 
     pa_chunk = self.parameters["pa_chunk"]
@@ -228,8 +227,8 @@ def get_config(config_fn):
 
     if config.has_option('General', 'target'):
         target = config.get('General', 'target')
-        if target not in ["all", "draft_assembly", "pre_assembly"]:
-            print """ Target has to be "all", "draft_assembly" or "pre_assembly". You have an unknown target %s in the configuration file.  """ % target
+        if target not in ["mapping", "all", "draft_assembly", "pre_assembly"]:
+            print """ Target has to be "mapping", "all", "draft_assembly" or "pre_assembly". You have an unknown target %s in the configuration file.  """ % target
             sys.exit(1)
     else:
         print """ No target specified, assuming a "pre-assembly" only target """
@@ -356,7 +355,8 @@ if __name__ == '__main__':
         os.system("touch %s" % fn(self.fasta_dump_done))
 
     wf.addTasks([h5fofn_to_fasta])
-    #wf.refreshTargets([fasta_dump_done])
+    #we need to force the execution of the graph at this point to ensure generating correct downstream graph 
+    wf.refreshTargets([fasta_dump_done]) 
 
      
     #### Task to split the fofn file into small chunks for parallel processing
@@ -378,7 +378,8 @@ if __name__ == '__main__':
         os.system("touch %s" % fn(self.split_fofn_done))
 
     wf.addTasks([split_fofn_task])
-    #wf.refreshTargets([split_fofn_done])
+    #we need to force the execution of the graph at this point to ensure generating correct downstream graph 
+    wf.refreshTargets([split_fofn_done])
 
 
     #### According to the split fofn, generate the targets sequence files and suffix array database
@@ -412,7 +413,8 @@ if __name__ == '__main__':
 
                 
     wf.addTasks([gather_targets])
-    #wf.refreshTargets([gather_targets_done])
+    #we need to force the execution of the graph at this point to ensure generating correct downstream graph 
+    wf.refreshTargets([gather_targets_done])
 
 
     #### Submit the MxN mapping jobs
@@ -529,14 +531,14 @@ if __name__ == '__main__':
         make_pread_task = PypeTask(inputs = inputs,
                                    outputs = {"pa_job_done": pa_job_done,
                                               "pa_out": pa_out},   
-                                   parameters = {"config":config, "pa_chunk":pa_chunk, "mapping_data_dir": mapping_data_dir, "pa_dir": pa_dir},
+                                   parameters = {"config":config, "pa_chunk":pa_chunk, "pa_dir": pa_dir},
                                    URL = "task://localhost/pa_task_%05d" % pa_chunk,
                                    TaskType = PypeThreadTaskBase)
         all_pa_out["pa_out_%05d" % pa_chunk] = pa_out
         pread_task = make_pread_task( get_preads )
         wf.addTask( pread_task )
         
-    pr_fofn = os.path.join( pa_dir, "pr_fastq.fofn") 
+    pr_fofn = os.path.join( pa_dir, "pr_fasta.fofn") 
     pr_fofn = makePypeLocalFile( pr_fofn )
     @PypeTask(inputs = all_pa_out, 
               outputs = {"pr_fofn": pr_fofn},   
@@ -548,6 +550,54 @@ if __name__ == '__main__':
             for fqn in all_pr:
                 print >> f, fqn
     wf.addTask(gather_pr)
+
+    ca_done = os.path.join( celera_asm_dir, "ca_done"  ) 
+    ca_done = makePypeLocalFile(ca_done)
+    @PypeTask(inputs = {"pr_fofn": pr_fofn}, 
+              outputs = {"ca_done": ca_done},   
+              parameters = {"config": config, "ca_dir": celera_asm_dir},
+              TaskType = PypeThreadTaskBase)
+
+    def run_CA(self):
+        from pbcore.io import FastaReader
+        ca_dir = self.parameters["ca_dir"]
+        config = self.parameters["config"]
+        install_prefix = config["install_prefix"]
+        sge_option_ca = config["sge_option_ca"]
+
+        fastq_fn = os.path.abspath(os.path.join(ca_dir, "preads.fastq"))
+        with open(fastq_fn, "w") as fq:
+            with open(fn(self.pr_fofn)) as fa_fofn:
+                for fan in fa_fofn:
+                    fan = fan.strip()
+                    fan_h = FastaReader(fan)
+                    for r in fan_h:
+                        fq.write("@"+r.name+"\n")
+                        fq.write( r.sequence+"\n")
+                        fq.write( "+" + "\n" )
+                        fq.write( "".join( [chr(33+24)] * len(r.sequence) ) + "\n" )
+
+        ca_cmd  = "cd %s\n" % ca_dir
+        ca_cmd += "fastqToCA -technology sanger -type sanger -libraryname pr_long -reads %s/preads.fastq > preads.frg\n" % ca_dir
+        ca_cmd += "runCA -d . -p asm -s {install_prefix}/etc/asm.spec  preads.frg\n".format( install_prefix = install_prefix )
+                                                                                                                         
+
+        script_fn = os.path.join( ca_dir, "runca.sh")
+        with open(script_fn,"w") as script_file:
+            script_file.write("source {install_prefix}/bin/activate\n".format(install_prefix = install_prefix))
+            script_file.write(ca_cmd+"\n")
+            script_file.write("touch %s" % fn(self.ca_done))
+
+        job_name = self.URL.split("/")[-1]
+        sge_cmd="qsub -N {job_name} {sge_option_ca} -o {cwd}/sge_log -j y\
+                 -S /bin/bash {script}".format(job_name=job_name,  
+                                               cwd=os.getcwd(), 
+                                               sge_option_ca=sge_option_ca, 
+                                               script=script_fn)
+
+        os.system( sge_cmd )
+        wait_for_file( fn(self.ca_done) )
+    wf.addTask(run_CA)
 
     with open("./workflow.dot","w") as f:
         print >>f, wf.graphvizShortNameDot
@@ -561,3 +611,4 @@ if __name__ == '__main__':
 
     with open("./workflow.dot","w") as f:
         print >>f, wf.graphvizShortNameDot
+
