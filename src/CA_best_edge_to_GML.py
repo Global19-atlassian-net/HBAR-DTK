@@ -50,8 +50,10 @@ with open(best_edge_file) as f:
         l = l.strip().split()
         id1, lib_id, best5, o1, best3, o3 = l
         G.add_node(id1, unitig="utg%s" % frg_to_tig[id1])
-        G.add_edge(best5, id1)
-        G.add_edge(id1, best3)
+        if best5 != "0":
+            G.add_edge(best5, id1)
+        if best3 != "0":
+            G.add_edge(id1, best3)
         #G[id1]["unitig"] = frg_to_tig[id1]
 
 nx.write_gml(G, output_file)
