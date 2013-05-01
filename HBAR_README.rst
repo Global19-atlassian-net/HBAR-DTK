@@ -318,6 +318,7 @@ Pick read length cutoffs that satisfy:
 3. The estimated Lander-Waterman contig size is larger than 0.25x of the genome size.
 
 ::
+
     print "recommended cutoff (total/seed > 3, LW contig # <0.25, LW contig length > 0.25x genome)"
     print "cutoff\ttotal_base\ttotol/seed\tcov\tcontig_count\tcontig_len/genome_size" 
 
