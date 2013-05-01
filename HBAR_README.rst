@@ -274,49 +274,43 @@ If you have `matplotlib` installed, you can check the histogram with::
 
 Set the genome size::
 
-    genome_size = 22000000
+    genome_size = 47000000
 
 Generate various coverage information and Lander-Waterman statistics for
 different length cutoff::
 
+
     total = sum(seq_lengths)
     coverage_array = []
-    for x in range(1000,6000,200):
+    print "cutoff\ttotal_base\ttotol/seed\tcov\tcontig_count\tcontig_len/genome_size"
+    for x in range(3000,10000,500):
         psum = sum(seq_lengths[seq_lengths>x])
         coverage = 0.5 * psum / genome_size # we loss 50% bases after the pre-assembly step
         contig_count = coverage * genome_size / x * exp( -coverage )
         contig_length = (exp(coverage) - 1) * x /coverage
-        print x, psum, 1.0*total/psum, coverage,  contig_count,  contig_length/genome_size
-        coverage_array.append( [x, psum, 1.0*total/psum, coverage,  contig_count, contig_length/genome_size, total] )
+        print "%d\t%d\t%0.2f\t%0.2f\t%0.2f\t%0.2f" % (x, psum, 1.0*total/psum, coverage,  contig_count,  contig_length/genome_size)
+        coverage_array.append( [x, psum, 1.0*total/psum, coverage,  contig_count, contig_length/genome_size] )
     coverage_array = np.array( coverage_array )
+
 
 Here is an example of the output::
 
-    1000 1795319853 1.59036696399 40.8027239318 1.70888952447e-12 585175335024.0
-    1200 1684447291 1.69504703368 38.2828929773 1.6603399309e-11 60228630377.9
-    1400 1581616454 1.80525270636 35.9458285 1.38314648717e-10 7229892200.71
-    1600 1482267608 1.92624959797 33.6879001818 1.08469461447e-09 921918470.561
-    1800 1389901045 2.05425946996 31.5886601136 7.37735364615e-09 135549961.133
-    2000 1303401914 2.19058860765 29.6227707727 4.44644042439e-08 22489899.8875
-    2200 1222781623 2.33501823244 27.7904914318 2.36940417001e-07 4220470.3303
-    2400 1148529428 2.48597668844 26.1029415455 1.10290324698e-06 906697.847461
-    2600 1079625953 2.64463574265 24.5369534773 4.58148716713e-06 218269.737205
-    2800 1015165114 2.81256452239 23.0719344091 1.73115062617e-05 57765.048563
-    3000 952304202 2.99821987344 21.6432773182 6.32511666946e-05 15809.9850463
-    3200 893305655 3.19623789239 20.30240125 0.000212617632036 4703.2787869
-    3400 834953276 3.41961336768 18.9762108182 0.000704513978576 1419.41824388
-    3600 778391254 3.66810054626 17.6907103182 0.00224330115006 445.771616184
-    3800 721976332 3.95472435515 16.408553 0.0071050206494 140.745533976
-    4000 666984099 4.28078778532 15.1587295227 0.0217607023724 45.9543870361
-    4200 614681938 4.64503218248 13.9700440455 0.06269864062 15.949295444
-    4400 563419683 5.06765643826 12.8049927955 0.17587804557 5.68574235479
-    4600 515441048 5.53936748941 11.7145692727 0.457950334934 2.18362505682
-    4800 468934016 6.08874017789 10.6575912727 1.14896665263 0.870326807227
-    5000 425971954 6.7028295107 9.68118077273 2.66009788684 0.375902539986
-    5200 384694332 7.42204172636 8.743053 5.90232032443 0.169397860342
-    5400 346010358 8.25182633405 7.86387177273 12.3148528561 0.0811715437399
-    5600 309468288 9.22620344221 7.03337018182 24.3693682419 0.0409989309392
-    5800 276458509 10.3278332591 6.28314793182 44.5077352936 0.0224260452905
+    cutoff  total_base      totol/seed      cov     contig_count    contig_len/genome_size
+    3000    338653714       1.36    36.03   0.00    78472724961.07
+    3500    303058009       1.52    32.24   0.00    2319098472.00
+    4000    267546052       1.72    28.46   0.00    68664337.09
+    4500    231380061       1.99    24.61   0.00    1905600.54
+    5000    197848047       2.33    21.05   0.00    69912.18
+    5500    166824314       2.76    17.75   0.00    3362.59
+    6000    139984665       3.29    14.89   0.00    251.54
+    6500    116457831       3.96    12.39   0.04    26.81
+    7000    95601124        4.82    10.17   0.26    3.82
+    7500    78065025        5.90    8.30    1.29    0.78
+    8000    63354342        7.28    6.74    4.68    0.21
+    8500    50775028        9.08    5.40    13.47   0.07
+    9000    40410887        11.41   4.30    30.49   0.03
+    9500    31313271        14.72   3.33    58.92   0.02
+
 
 Pick read length cutoffs that satisfy:
 1. The ratio of the total number bases to the long read bases is larger than 3.
@@ -324,19 +318,20 @@ Pick read length cutoffs that satisfy:
 3. The estimated Lander-Waterman contig size is larger than 0.25x of the genome size.
 
 ::
+    print "recommended cutoff (total/seed > 3, LW contig # <0.25, LW contig length > 0.25x genome)"
+    print "cutoff\ttotal_base\ttotol/seed\tcov\tcontig_count\tcontig_len/genome_size" 
 
     for l in coverage_array[ (coverage_array[...,2]>3) & (coverage_array[...,4]<0.25) & (coverage_array[...,5]>0.25),...]:
-        print " ".join([str(c) for c in l])
+        print "%d\t%d\t%0.2f\t%0.2f\t%0.2f\t%0.2f" % tuple(l)
+
 
 The output::
 
-    3200.0 893305655.0 3.19623789239 20.30240125 0.000212617632036 4703.2787869 2855217384.0
-    3400.0 834953276.0 3.41961336768 18.9762108182 0.000704513978576 1419.41824388 2855217384.0
-    3600.0 778391254.0 3.66810054626 17.6907103182 0.00224330115006 445.771616184 2855217384.0
-    3800.0 721976332.0 3.95472435515 16.408553 0.0071050206494 140.745533976 2855217384.0
-    4000.0 666984099.0 4.28078778532 15.1587295227 0.0217607023724 45.9543870361 2855217384.0
-    4200.0 614681938.0 4.64503218248 13.9700440455 0.06269864062 15.949295444 2855217384.0
-    4400.0 563419683.0 5.06765643826 12.8049927955 0.17587804557 5.68574235479 2855217384.0
+    recommended cutoff (total/seed > 3, LW contig # <0.25, LW contig length > 0.25x genome)
+    cutoff  total_base      totol/seed      cov     contig_count    contig_len/genome_size
+    6000    139984665       3.29    14.89   0.00    251.54
+    6500    116457831       3.96    12.39   0.04    26.81
+
 
 In this example, length cutoffs from 3200 to 4400 satisfy the criteria.
 
