@@ -4,7 +4,7 @@ Installing and running the HBAR-DTK scripts
 :Authors: 
     Jason Chin
 
-:Version: 0.1 of 2013/03/20
+:Version: 0.1.1 of 2013/04/30
 
 
 Prerequisites:
@@ -334,5 +334,5 @@ The output::
     6500    116457831       3.96    12.39   0.04    26.81
 
 
-In this example, length cutoffs from 3200 to 4400 satisfy the criteria.
+In this example, length cutoffs from 6000 to 6500 satisfy the criteria.
 
