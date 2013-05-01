@@ -111,7 +111,7 @@ def get_ec_reads(input_data):
     niter = 2
     dump_dag_info = False
     consensus_seq_name = ref_id
-    s = generate_consensus(input_fasta_name, ref_fasta_name, full_prefix, consensus_seq_name,
+    s = generate_all_consensus(input_fasta_name, ref_fasta_name, full_prefix, consensus_seq_name,
                            hp_corr, 
                            niter, 
                            max_n_reads, 
@@ -128,10 +128,7 @@ def get_ec_reads(input_data):
         return ref_id, "", 0
 
  
-    if s != None:
-        return ref_id, s, cov
-    else:
-        return ref_id, "", cov
+    return ref_id, s, cov
 
 
 
@@ -243,13 +240,16 @@ print >>output_log, "start: " + str(datetime.now())
 with open(output_file, "w") as f:
     i = 1
     for res in exe_pool.imap(get_ec_reads, ec_data):
-        if len(res[1]) > 500:
-            print >>f, ">"+res[0]
-            print >>f, res[1][trim_plr:-trim_plr]
+        j = 1
+        for s,qv_d in res[1]:
+            if len(s) > 500:
+                print >>f, ">%s_%d" % (res[0], j)
+                print >>f, s[trim_plr:-trim_plr]
+                print >> output_log, "+", i, "%s_%d" % (res[0], j), len(s), res[2]
+                j += 1
             if i % 100 == 0:
                 f.flush()
                 os.fsync(f.fileno()) 
-        print >> output_log, "+", i, res[0], len(res[1]), res[2]
         if i % 100 == 0:
             output_log.flush()
             os.fsync(output_log.fileno())

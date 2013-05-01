@@ -335,7 +335,8 @@ if __name__ == '__main__':
     target_fa_fofn = makePypeLocalFile( os.path.join( fasta_dir, "targets.fofn" ) )
     fasta_dump_done = makePypeLocalFile(os.path.abspath( os.path.join( fasta_dir, "fasta_dump_done") ) )
     parameters = {"fasta_dir": fasta_dir,
-                  "min_seed_length": config["length_cutoff"], 
+                  "min_length": config["length_cutoff"],
+                  "min_seed_length": config["length_cutoff_pr"], 
                   "min_read_score": config["RQ_threshold"]}
 
     @PypeTask(inputs = {"input_fofn": input_h5_fofn},
@@ -345,9 +346,10 @@ if __name__ == '__main__':
               parameters = parameters,
               TaskType = PypeThreadTaskBase)
     def h5fofn_to_fasta(self):
-        os.system("h5fofn_to_fasta.py %s %s --min_seed_length %d --min_read_score %f" %\
+        os.system("h5fofn_to_fasta.py %s %s --min_length %d --min_seed_length %d --min_read_score %f" %\
                    (fn(self.input_fofn), 
                     self.parameters["fasta_dir"], 
+                    self.parameters["min_length"],
                     self.parameters["min_seed_length"], 
                     self.parameters["min_read_score"]))
         os.system("""find %s -name "*_t.fa" | sort > %s""" % (self.parameters["fasta_dir"], fn(self.target_fa_fofn)))
@@ -413,6 +415,7 @@ if __name__ == '__main__':
 
                 
     wf.addTasks([gather_targets])
+
     #we need to force the execution of the graph at this point to ensure generating correct downstream graph 
     wf.refreshTargets([gather_targets_done])
 
@@ -492,6 +495,8 @@ if __name__ == '__main__':
 
         job_done = os.path.join( mapping_data_dir, "qf%05d_done" % q_sn ) 
         job_done = makePypeLocalFile(job_done)
+
+        all_qf_out["qf_done_%s" % q_sn] = job_done
         parameters = { "mapping_data_dir": mapping_data_dir, "q_sn": q_sn }
         make_qf_task = PypeTask(inputs = query_group_done,
                                 outputs = {"qf_out": qf_out, "job_done": job_done},
@@ -535,6 +540,7 @@ if __name__ == '__main__':
                                    URL = "task://localhost/pa_task_%05d" % pa_chunk,
                                    TaskType = PypeThreadTaskBase)
         all_pa_out["pa_out_%05d" % pa_chunk] = pa_out
+        all_pa_out["pa_done_%05d" % pa_chunk] = pa_job_done
         pread_task = make_pread_task( get_preads )
         wf.addTask( pread_task )
         
