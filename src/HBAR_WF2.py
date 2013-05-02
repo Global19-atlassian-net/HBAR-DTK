@@ -357,7 +357,6 @@ if __name__ == '__main__':
     fasta_dump_done = makePypeLocalFile(os.path.abspath( os.path.join( fasta_dir, "fasta_dump_done") ) )
     parameters = {"fasta_dir": fasta_dir,
                   "min_length": config["length_cutoff"],
-                  "min_seed_length": config["length_cutoff_pr"], 
                   "min_read_score": config["RQ_threshold"]}
 
     @PypeTask(inputs = {"input_fofn": input_h5_fofn},
@@ -367,11 +366,10 @@ if __name__ == '__main__':
               parameters = parameters,
               TaskType = PypeThreadTaskBase)
     def h5fofn_to_fasta(self):
-        os.system("h5fofn_to_fasta.py %s %s --min_length %d --min_seed_length %d --min_read_score %f" %\
+        os.system("h5fofn_to_fasta.py %s %s --min_length 500 --min_seed_length %d --min_read_score %f" %\
                    (fn(self.input_fofn), 
                     self.parameters["fasta_dir"], 
                     self.parameters["min_length"],
-                    self.parameters["min_seed_length"], 
                     self.parameters["min_read_score"]))
         os.system("""find %s -name "*_t.fa" | sort > %s""" % (self.parameters["fasta_dir"], fn(self.target_fa_fofn)))
         os.system("""find %s -name "*_q.fa" | sort > %s""" % (self.parameters["fasta_dir"], fn(self.query_fa_fofn)))
