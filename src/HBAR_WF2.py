@@ -357,7 +357,6 @@ if __name__ == '__main__':
     fasta_dump_done = makePypeLocalFile(os.path.abspath( os.path.join( fasta_dir, "fasta_dump_done") ) )
     parameters = {"fasta_dir": fasta_dir,
                   "min_length": config["length_cutoff"],
-                  "min_seed_length": config["length_cutoff_pr"], 
                   "min_read_score": config["RQ_threshold"]}
 
     @PypeTask(inputs = {"input_fofn": input_h5_fofn},
