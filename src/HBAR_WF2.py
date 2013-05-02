@@ -20,6 +20,22 @@ if log:
     ch.setFormatter(formatter)
     logger.addHandler(ch)
 
+def run_script(job_data, job_type = "SGE" ):
+    if job_type == "SGE":
+        job_name = job_data["job_name"]
+        cwd = job_data["cwd"]
+        sge_option = job_data["sge_option"]
+        script_fn = job_data["script_fn"]
+        sge_cmd="qsub -N {job_name} {sge_option} -o {cwd}/sge_log -j y\
+                 -S /bin/bash {script}".format(job_name=job_name,  
+                                               cwd=os.getcwd(), 
+                                               sge_option=sge_option, 
+                                               script=script_fn)
+
+        os.system( sge_cmd )
+    elif job_type == "local":
+        os.system( "bash %s" % job_data["script_fn"] )
+
 def wait_for_file(filename):
     while 1:
         time.sleep(10)
@@ -109,13 +125,12 @@ def blasr_align(self):
         script_file.write("touch %s" % fn(self.job_done))
 
     job_name = self.URL.split("/")[-1]
-    sge_cmd="qsub -N {job_name} {sge_option_dm} -o {cwd}/sge_log -j y\
-             -S /bin/bash {script}".format(job_name=job_name,  
-                                           cwd=os.getcwd(), 
-                                           sge_option_dm=sge_option_dm, 
-                                           script=script_fn)
+    job_data = {"job_name": job_name,
+                "cwd": os.getcwd(),
+                "sge_option": sge_option_dm,
+                "script_fn": script_fn }
+    run_script(job_data, job_type = config["job_type"])
 
-    os.system( sge_cmd )
     wait_for_file( fn(self.job_done) )
 
 def query_filter(self):
@@ -137,14 +152,12 @@ def query_filter(self):
         script_file.write("""touch %s\n""" % fn(self.job_done) )
 
     job_name = self.URL.split("/")[-1]
-    sge_cmd="qsub -N {job_name} {sge_option_qf} -o {cwd}/sge_log -j y\
-            -S /bin/bash {script}".format(job_name = job_name, 
-                                          sge_option_qf = sge_option_qf,  
-                                          cwd = os.getcwd(), 
-                                          script = script_fn)
-    #os.system("sleep 5; touch %s" % fn(self.qf_out))
-    #os.system("sleep 5; touch %s" % fn(self.job_done))
-    os.system(sge_cmd)
+    job_data = {"job_name": job_name,
+                "cwd": os.getcwd(),
+                "sge_option": sge_option_qf,
+                "script_fn": script_fn }
+    run_script(job_data, job_type = config["job_type"])
+
     wait_for_file( fn(self.job_done) )
 
 def get_preads(self):
@@ -177,13 +190,11 @@ def get_preads(self):
         script_file.write("""touch %s\n""" % fn(self.pa_job_done) )
 
     job_name = self.URL.split("/")[-1]
-    sge_cmd="qsub -N {job_name} {sge_option_pa} -o {cwd}/sge_log -j y\
-             -S /bin/bash {script}".format(job_name=job_name, 
-                                           sge_option_pa = sge_option_pa,  
-                                           cwd=os.getcwd(), 
-                                           script=script_fn)
-
-    os.system(sge_cmd)
+    job_data = {"job_name": job_name,
+                "cwd": os.getcwd(),
+                "sge_option": sge_option_pa,
+                "script_fn": script_fn }
+    run_script(job_data, job_type = config["job_type"])
     wait_for_file( fn(self.pa_job_done) )
     
 def get_config(config_fn):
@@ -193,6 +204,14 @@ def get_config(config_fn):
     config = ConfigParser.RawConfigParser()
 
     config.read(config_fn)
+    
+    job_type = "SGE"
+    if config.has_option('General', 'job_type'):
+        job_type = config.get('General', 'job_type')
+    
+    concurrent_jobs = 8
+    if config.has_option('General', 'concurrent_jobs'):
+        concurrent_jobs = config.getint('General', 'concurrent_jobs')
 
     length_cutoff = config.getint('General', 'length_cutoff')
     input_fofn_fn = config.get('General', 'input_fofn')
@@ -274,6 +293,8 @@ def get_config(config_fn):
 
     SYMOURE_HOME = config.get("General", "SEYMOUR_HOME")
     hgap_config = {"input_fofn_fn" : input_fofn_fn,
+                   "job_type" : job_type,
+                   "concurrent_jobs" : concurrent_jobs,
                    "length_cutoff" : length_cutoff,
                    "length_cutoff_pr" : length_cutoff_pr,
                    "sge_option_dm": config.get('General', 'sge_option_dm'),
@@ -324,8 +345,8 @@ if __name__ == '__main__':
             pass
 
     config = get_config(sys.argv[1])
-
-    PypeThreadWorkflow.setNumThreadAllowed(8, 8)
+    concurrent_jobs = config["concurrent_jobs"]
+    PypeThreadWorkflow.setNumThreadAllowed(concurrent_jobs, concurrent_jobs)
     wf = PypeThreadWorkflow()
 
 
@@ -595,14 +616,13 @@ if __name__ == '__main__':
             script_file.write("touch %s" % fn(self.ca_done))
 
         job_name = self.URL.split("/")[-1]
-        sge_cmd="qsub -N {job_name} {sge_option_ca} -o {cwd}/sge_log -j y\
-                 -S /bin/bash {script}".format(job_name=job_name,  
-                                               cwd=os.getcwd(), 
-                                               sge_option_ca=sge_option_ca, 
-                                               script=script_fn)
-
-        os.system( sge_cmd )
+        job_data = {"job_name": job_name,
+                    "cwd": os.getcwd(),
+                    "sge_option": sge_option_ca,
+                    "script_fn": script_fn }
+        run_script(job_data, job_type = config["job_type"])
         wait_for_file( fn(self.ca_done) )
+
     wf.addTask(run_CA)
 
     with open("./workflow.dot","w") as f:
