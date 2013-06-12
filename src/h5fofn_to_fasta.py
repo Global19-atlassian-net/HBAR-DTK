@@ -83,15 +83,31 @@ class H5FofnToFastaRunner(PBToolRunner):
         with open(self.args.h5_fofn_file) as f:
             for l in f:
                 l = l.strip()
-                assert l.endswith(".bas.h5") or l.endswith(".bax.h5")
-                movie_name = ".".join( os.path.basename(l).split(".")[:-2] ) # remove ".bas.h5" or ".bax.h5" 
+                assert l.endswith(".bas.h5") or l.endswith(".bax.h5") or l.endswith(".fastq") or l.endswith(".fa") or l.endswith(".fasta")
+                if l.endswith(".fastq") or l.endswith(".fa") or l.endswith(".fasta"):
+                    movie_name = ".".join( os.path.basename(l).split(".")[:-1] ) # remove ".fastq" 
+                else:
+                    movie_name = ".".join( os.path.basename(l).split(".")[:-2] ) # remove ".bas.h5" or ".bax.h5" 
+                
                 movie_name_md5 = md5.md5(movie_name).hexdigest()[:8]
                 out_query_name = os.path.join(self.args.out_dir,  movie_name_md5 + "_q.fa")
                 out_target_name = os.path.join(self.args.out_dir,  movie_name_md5 + "_t.fa")
                 if not self.args.replace and os.path.exists(out_query_name) and os.path.exists(out_target_name):
                     continue
                 tmp_prefix = os.path.join(self.args.tmp_dir, "tmp_%s" % movie_name_md5)
-                os.system("bash5tools.py %s --readType subreads --outType fasta --minReadScore %f --outFilePref %s" % (l, self.args.minrs, tmp_prefix))
+                if l.endswith(".fastq") or l.endswith(".fa") or l.endswith(".fasta"):
+                    if l.endswith(".fastq"):
+                        fq = pbcore.io.FastqReader(l)
+                    else:
+                        fq = pbcore.io.FastaReader(l)
+                    with open("%s.fasta" % tmp_prefix, "w") as out_f:
+                        for r in fq:
+                            if len(r.sequence) > self.args.minrs:
+                                print >> out_f, ">%s" % r.name
+                                print >> out_f, r.sequence
+                else:    
+                    os.system("bash5tools.py %s --readType subreads --outType fasta --minReadScore %f --outFilePref %s" % (l, self.args.minrs, tmp_prefix))
+
                 with open(out_query_name, "w") as o_q:
                     with open(out_target_name, "w") as o_t:
                         fq = pbcore.io.FastaReader("%s.fasta" % tmp_prefix)

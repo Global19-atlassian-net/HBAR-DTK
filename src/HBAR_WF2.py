@@ -36,11 +36,16 @@ def run_script(job_data, job_type = "SGE" ):
     elif job_type == "local":
         os.system( "bash %s" % job_data["script_fn"] )
 
-def wait_for_file(filename):
+def wait_for_file(filename, task = None, job_name = ""):
     while 1:
         time.sleep(10)
         if os.path.exists(filename):
             break
+
+        if task != None:
+            if task.shutdown_event != None and task.shutdown_event.is_set(): 
+                os.system("qdel %s" % job_name)
+                break
 
 def split_fofn( input_fofn, out_dir, prefix, size_of_chunk, incremental = True, allow_fraction = True):
 
@@ -131,7 +136,7 @@ def blasr_align(self):
                 "script_fn": script_fn }
     run_script(job_data, job_type = config["job_type"])
 
-    wait_for_file( fn(self.job_done) )
+    wait_for_file( fn(self.job_done), task=self, job_name=job_name )
 
 def query_filter(self):
     #print self.parameters
@@ -158,7 +163,7 @@ def query_filter(self):
                 "script_fn": script_fn }
     run_script(job_data, job_type = config["job_type"])
 
-    wait_for_file( fn(self.job_done) )
+    wait_for_file( fn(self.job_done), task=self, job_name=job_name )
 
 def get_preads(self):
     q_fofn_fn = fn( self.query_fa_fofn )
@@ -195,7 +200,7 @@ def get_preads(self):
                 "sge_option": sge_option_pa,
                 "script_fn": script_fn }
     run_script(job_data, job_type = config["job_type"])
-    wait_for_file( fn(self.pa_job_done) )
+    wait_for_file( fn(self.pa_job_done), task=self, job_name=job_name )
     
 def get_config(config_fn):
 
@@ -619,7 +624,7 @@ if __name__ == '__main__':
                     "sge_option": sge_option_ca,
                     "script_fn": script_fn }
         run_script(job_data, job_type = config["job_type"])
-        wait_for_file( fn(self.ca_done) )
+        wait_for_file( fn(self.ca_job_done), task=self, job_name=job_name )
 
     wf.addTask(run_CA)
 
