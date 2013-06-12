@@ -262,12 +262,6 @@ def get_config(config_fn):
     if config.has_option('General', 'preassembly_num_chunk'):
         preassembly_num_chunk = config.getint('General', 'preassembly_num_chunk')
 
-    dist_map_num_chunk = 12
-    if config.has_option('General', 'dist_map_num_chunk'):
-        dist_map_num_chunk = config.getint('General', 'dist_map_num_chunk')
-        #if dist_map_num_chunk < bestn / 2.0:
-        #    dist_map_num_chunk = int((bestn + 1)/ 2)
-
     min_cov = 4
     if config.has_option('General', 'min_cov'):
         min_cov = config.getint('General', 'min_cov')
@@ -313,7 +307,6 @@ def get_config(config_fn):
                    "tmpdir" : tmpdir,
                    "SEYMOUR_HOME" : SEYMOUR_HOME,
                    "target" : target,
-                   "dist_map_num_chunk": dist_map_num_chunk,
                    "preassembly_num_chunk": preassembly_num_chunk,
                    "big_tmpdir": big_tmpdir,
                    "min_cov": min_cov,
