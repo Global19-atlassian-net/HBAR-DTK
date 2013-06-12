@@ -3,7 +3,7 @@ import sys
 
 setup(
     name = 'pbtools.hbar-dtk',
-    version='0.1.3',
+    version='0.1.4',
     author='pbiDevNet',
     author_email='pbiDevNet@pacificbiosciences.com',
     license='LICENCES',
