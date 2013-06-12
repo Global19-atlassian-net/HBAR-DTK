@@ -617,7 +617,7 @@ if __name__ == '__main__':
                     "sge_option": sge_option_ca,
                     "script_fn": script_fn }
         run_script(job_data, job_type = config["job_type"])
-        wait_for_file( fn(self.ca_job_done), task=self, job_name=job_name )
+        wait_for_file( fn(self.ca_done), task=self, job_name=job_name )
 
     wf.addTask(run_CA)
 
