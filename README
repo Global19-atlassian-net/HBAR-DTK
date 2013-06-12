@@ -1,6 +1,9 @@
 What is HBAR-DTK?
 ==================
 
+Last Modifide : June 11, 2013
+
+
 HBAR-DTK stands for "Hierarchical-Based AssembleR Development ToolKit". The
 code is derived from the prototype process for developing the "Hierachical
 Genome Assembly Process (HGAP)" that PacBio(R) provides to the scientists who
@@ -17,10 +20,20 @@ bioinformatics workflow for genome assemblies.
 
 Here is the list of the functions of the major scripts:
 
+    HBAR_WF2.py:
+
+        A pypeflow driven workflow script to process data and submmitting jobs
+        to a SGE cluster for every steps of the hierachical genome assembly
+        process. This workflow is designed for larger genome assembly project 
+        where the data may not come at once. It uses different way from the 
+        ``HBAR_WF.py`` for chunking the input sequencing data and gathering
+        the alignment results. The old alignment data will be re-used if new 
+        inputs are added. 
+
     HBAR_WF.py:
 
         A pypeflow driven workflow script to process data and submmitting jobs
-        to a SGE cluster for every steps of thehierachical genome assembly
+        to a SGE cluster for every steps of the hierachical genome assembly
         process
 
     filterM4Query.py:
@@ -36,6 +49,21 @@ Here is the list of the functions of the major scripts:
         data to generate preassembled reads that can be feed into an
         assembler. This code is called by the
         HBAR_WF.py.  It is not meant to be called directly from command line.
+
+    h5fofn_to_fasta.py:
+        
+        Used by ``HBAR_WF2.py`` to convert ``bas.h5``, ``bax.h5``, ``fasta``
+        or ``fastq`` for its internal ``fasta`` files.
+
+    get_pread.py:
+
+        a modified version of generate_preassemble_reads.py used by ``HBAR-WF2.py``
+
+    simple_asm.py:
+
+        A preliminary implementation for the first step of "Consistent Long-read
+        Evidence Essembly pRocess" (CLEAR)
+
 
 Some convenient scripts:
 
