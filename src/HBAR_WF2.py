@@ -460,12 +460,15 @@ if __name__ == '__main__':
             fofn_base = os.path.basename(fofn).split(".")[0]
             out_f_fa = os.path.join(targets_dir, fofn_base+".fa")
             out_f_sa = os.path.join(targets_dir, fofn_base+".sa")
+            if os.path.exists(out_f_fa) and os.path.exists(out_f_sa):
+                continue
             with open( out_f_fa, "w" ) as out_f:
                 with open(fofn) as f:
                     for l in f:
                         l = l.strip()
                         with open(l) as fasta_f:
                             out_f.write(fasta_f.read())
+            #TODO: Do not overwrite existing fasta/sa
             os.system("sawriter %s %s -blt 12" % ( out_f_sa, out_f_fa))
 
         os.system("touch %s" % fn(self.gather_targets_done))
@@ -530,7 +533,7 @@ if __name__ == '__main__':
             job_done = makePypeLocalFile( job_done)
             query_group_done["q%05d_t%05d_done" % (q_sn, t_sn)] = job_done
 
-            inputs = { "query_fofn" : q_fofn, "target_fa": t_fa, "target_sa": t_sa, "gather_targets_done": gather_targets_done }
+            inputs = { "query_fofn" : q_fofn, "target_fa": t_fa, "target_sa": t_sa }
             outputs = { "job_done": job_done }
             parameters = { "mapping_data_dir": mapping_data_dir, "q_sn": q_sn, "t_sn": t_sn, "config":config }
         
