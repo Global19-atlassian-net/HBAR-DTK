@@ -48,6 +48,7 @@ import os
 import re
 import time
 import logging
+import uuid
 
 log = 0
 if log:
@@ -170,6 +171,7 @@ def blasr_align(self):
         script_file.write("touch %s" % fn(self.job_done))
 
     job_name = self.URL.split("/")[-1]
+    job_name += str(uuid.uuid1())[:8]
     job_data = {"job_name": job_name,
                 "cwd": os.getcwd(),
                 "sge_option": sge_option_dm,
@@ -197,6 +199,7 @@ def query_filter(self):
         script_file.write("""touch %s\n""" % fn(self.job_done) )
 
     job_name = self.URL.split("/")[-1]
+    job_name += str(uuid.uuid1())[:8]
     job_data = {"job_name": job_name,
                 "cwd": os.getcwd(),
                 "sge_option": sge_option_qf,
@@ -235,6 +238,7 @@ def get_preads(self):
         script_file.write("""touch %s\n""" % fn(self.pa_job_done) )
 
     job_name = self.URL.split("/")[-1]
+    job_name += str(uuid.uuid1())[:8]
     job_data = {"job_name": job_name,
                 "cwd": os.getcwd(),
                 "sge_option": sge_option_pa,
@@ -283,6 +287,10 @@ def get_config(config_fn):
     if config.has_option('General', 'big_tmpdir'):
         big_tmpdir = config.get('General', 'big_tmpdir')
     
+    use_CA_spec = ""
+    if config.has_option('General', 'use_CA_spec'):
+        use_CA_spec = config.get('General', 'use_CA_spec')
+
     if not config.has_option('General', 'SEYMOUR_HOME'):
         print """ SEYMOUR_HOME not found in the configuration file, quiver can not be run """
         SEYMOUR_HOME = None
@@ -349,6 +357,7 @@ def get_config(config_fn):
                    "target" : target,
                    "preassembly_num_chunk": preassembly_num_chunk,
                    "big_tmpdir": big_tmpdir,
+                   "use_CA_spec": use_CA_spec,
                    "min_cov": min_cov,
                    "max_cov": max_cov,
                    "trim_align": trim_align,
@@ -630,7 +639,8 @@ if __name__ == '__main__':
         config = self.parameters["config"]
         install_prefix = config["install_prefix"]
         sge_option_ca = config["sge_option_ca"]
-
+        use_CA_spec = config["use_CA_spec"]
+    
         fastq_fn = os.path.abspath(os.path.join(ca_dir, "preads.fastq"))
         with open(fastq_fn, "w") as fq:
             with open(fn(self.pr_fofn)) as fa_fofn:
@@ -645,7 +655,10 @@ if __name__ == '__main__':
 
         ca_cmd  = "cd %s\n" % ca_dir
         ca_cmd += "fastqToCA -technology sanger -type sanger -libraryname pr_long -reads %s/preads.fastq > preads.frg\n" % ca_dir
-        ca_cmd += "runCA -d . -p asm -s {install_prefix}/etc/asm.spec  preads.frg\n".format( install_prefix = install_prefix )
+        if use_CA_spec == "":
+            ca_cmd += "runCA -d . -p asm -s {install_prefix}/etc/asm.spec  preads.frg\n".format( install_prefix = install_prefix )
+        else:
+            ca_cmd += "runCA -d . -p asm -s {CA_spec}  preads.frg\n".format( CS_spec = use_CA_spec )
                                                                                                                          
 
         script_fn = os.path.join( ca_dir, "runca.sh")
@@ -655,6 +668,7 @@ if __name__ == '__main__':
             script_file.write("touch %s" % fn(self.ca_done))
 
         job_name = self.URL.split("/")[-1]
+        job_name += str(uuid.uuid1())[:8]
         job_data = {"job_name": job_name,
                     "cwd": os.getcwd(),
                     "sge_option": sge_option_ca,
