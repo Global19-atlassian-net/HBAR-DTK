@@ -587,7 +587,8 @@ if __name__ == '__main__':
         all_qf.sort()
         with open( fn( self.qm4_fofn ),"w" ) as f:
             for m4f in all_qf:
-                print >> f, m4f
+                if m4f.endswith("m4"):
+                    print >> f, m4f
     wf.addTask(gather_qm4)
 
     
