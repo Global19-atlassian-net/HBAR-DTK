@@ -11,6 +11,7 @@ setup(
     namespace_packages = ['pbtools'],
     scripts = ["src/HBAR_WF.py", 
                "src/HBAR_WF2.py", 
+               "src/HBAR_WF3.py", 
                "src/generate_preassemble_reads.py",
                "src/get_preads.py",
                "src/filterM4Query.py",
