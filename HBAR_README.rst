@@ -54,7 +54,7 @@ Install ``h5py`` ( http://h5py.googlecode.com/files/h5py-2.0.1.tar.gz )::
     $ wget http://h5py.googlecode.com/files/h5py-2.0.1.tar.gz
     $ tar zxvf h5py-2.0.1.tar.gz
     $ cd h5py-2.0.1
-    $ python setup.py build --hdf5=$PATH_TO_HBAR_ENV
+    $ python setup.py build --hdf5=$HBAR_HOME
     $ python setup.py install
 
 
