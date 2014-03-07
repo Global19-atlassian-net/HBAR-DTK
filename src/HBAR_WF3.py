@@ -662,7 +662,7 @@ if __name__ == '__main__':
                             fa_f.write( r.sequence+"\n")
     
         fca_cmd  = "cd %s\n" % fca_dir
-        fca_cmd += "falcon_overlap.py --n_core 24 --d_core 24 preads.fa > preads.ovlp\n"
+        fca_cmd += "falcon_overlap.py --n_core 24 --d_core 24 preads.fa | grep -v none > preads.ovlp\n"
         fca_cmd += "falcon_asm.py preads.ovlp preads.fa\n"
         fca_cmd += "falcon_fixasm.py\n"
                                                                                                                          
