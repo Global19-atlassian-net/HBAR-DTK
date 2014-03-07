@@ -180,6 +180,42 @@ def blasr_align(self):
 
     wait_for_file( fn(self.job_done), task=self, job_name=job_name )
 
+def qrm_align(self):
+
+    q_fofn = self.query_fofn
+    t_fofn = self.target_fofn
+    output_dir = self.parameters["mapping_data_dir"]
+    q_sn = self.parameters["q_sn"]
+    t_sn = self.parameters["t_sn"]
+    out_fn = os.path.join( output_dir, "q%05d_t%05d.m4" % (q_sn, t_sn))
+    script_fn = os.path.join( output_dir, "q%05d_t%05d.sh" % (q_sn, t_sn))
+    config = self.parameters["config"]
+    #blasr_opt = config["blasr_opt"]
+    qrm_opt = config["qrm_opt"]
+    sge_option_dm = config["sge_option_dm"]
+    install_prefix = config["install_prefix"]
+
+    #blasr_cmd = """blasr %s %s -sa %s -noSplitSubreads -bestn 16 -nCandidates 32 -maxScore -1000 -minMatch 12 -maxLCPLength 15 -nproc 16 -m 4 -out %s""" % (fn(q_fofn), fn(target_fa), fn(target_sa), out_fn)
+
+    qrm_cmd = """falcon_qrm.py {qrm_opt} {target} {query} > {out_fn}"""
+    qrm_cmd = qrm_cmd.format( query=fn(q_fofn), target=fn(t_fofn), qrm_opt=qrm_opt, out_fn=out_fn )
+                                                                                                                     
+
+    with open(script_fn,"w") as script_file:
+        script_file.write("source {install_prefix}/bin/activate\n".format(install_prefix = install_prefix))
+        script_file.write(qrm_cmd+"\n")
+        script_file.write("touch %s" % fn(self.job_done))
+
+    job_name = self.URL.split("/")[-1]
+    job_name += str(uuid.uuid1())[:8]
+    job_data = {"job_name": job_name,
+                "cwd": os.getcwd(),
+                "sge_option": sge_option_dm,
+                "script_fn": script_fn }
+    run_script(job_data, job_type = config["job_type"])
+
+    wait_for_file( fn(self.job_done), task=self, job_name=job_name )
+
 def query_filter(self):
     #print self.parameters
     #print [fn(f) for f in self.inputs.values()]
@@ -280,6 +316,10 @@ def get_config(config_fn):
     if config.has_option('General', 'blasr_opt'):
         blasr_opt = config.get('General', 'blasr_opt')
 
+    qrm_opt = """ --min_len 500 --n_core 24 --d_core 3"""
+    if config.has_option('General', 'qrm_opt'):
+        blasr_opt = config.get('General', 'qrm_opt')
+
     tmpdir = "/tmp"
     if config.has_option('General', 'tmpdir'):
         tmpdir = config.get('General', 'tmpdir')
@@ -300,7 +340,7 @@ def get_config(config_fn):
 
     if config.has_option('General', 'target'):
         target = config.get('General', 'target')
-        if target not in ["mapping", "pre_assembly"]:
+        if target not in ["mapping", "pre_assembly", "falcon_asm"]:
             print """ Target has to be "mapping", or "pre_assembly" in this verison. You have an unknown target %s in the configuration file.  """ % target
             sys.exit(1)
     else:
@@ -348,10 +388,11 @@ def get_config(config_fn):
                    "sge_option_dm": config.get('General', 'sge_option_dm'),
                    "sge_option_qf": config.get('General', 'sge_option_qf'),
                    "sge_option_pa": config.get('General', 'sge_option_pa'),
-                   "sge_option_ca": config.get('General', 'sge_option_ca'),
+                   "sge_option_fca": config.get('General', 'sge_option_fca'),
                    "sge_option_qv": config.get('General', 'sge_option_qv'),
                    "bestn" : bestn,
                    "blasr_opt" : blasr_opt,
+                   "qrm_opt" : qrm_opt,
                    "RQ_threshold" : RQ_threshold,
                    "tmpdir" : tmpdir,
                    "SEYMOUR_HOME" : SEYMOUR_HOME,
@@ -380,13 +421,13 @@ if __name__ == '__main__':
         sys.exit(1)
     
     fasta_dir = os.path.abspath("./0-fasta_files")
-    dist_map_dir = os.path.abspath("./1-dist_map")
+    dist_map_dir = os.path.abspath("./1-dist_map-falcon")
     pa_dir = os.path.abspath("./2-preads-falcon")
-    celera_asm_dir  = os.path.abspath("./3-CA")
+    falcon_asm_dir  = os.path.abspath("./3-asm-falcon")
     script_dir = os.path.abspath("./scripts")
     sge_log_dir = os.path.abspath("./sge_log")
 
-    for d in (dist_map_dir, fasta_dir, pa_dir, script_dir, celera_asm_dir,  sge_log_dir):
+    for d in (dist_map_dir, fasta_dir, pa_dir, script_dir, falcon_asm_dir,  sge_log_dir):
         try:
             os.makedirs(d)
         except:
@@ -459,28 +500,6 @@ if __name__ == '__main__':
               parameters = {"config":config, "dist_map_dir": dist_map_dir},
               TaskType = PypeThreadTaskBase)
     def gather_targets(self):
-
-        targets_dir = os.path.join(self.parameters["dist_map_dir"],"targets/") 
-        try:
-            os.makedirs(targets_dir)
-        except:
-            pass
-
-        for fofn in glob.glob(os.path.join(self.parameters["dist_map_dir"], "target_[0-9]*.fofn")):
-            fofn_base = os.path.basename(fofn).split(".")[0]
-            out_f_fa = os.path.join(targets_dir, fofn_base+".fa")
-            out_f_sa = os.path.join(targets_dir, fofn_base+".sa")
-            if os.path.exists(out_f_fa) and os.path.exists(out_f_sa):
-                continue
-            with open( out_f_fa, "w" ) as out_f:
-                with open(fofn) as f:
-                    for l in f:
-                        l = l.strip()
-                        with open(l) as fasta_f:
-                            out_f.write(fasta_f.read())
-            #TODO: Do not overwrite existing fasta/sa
-            os.system("sawriter %s %s -blt 12" % ( out_f_sa, out_f_fa))
-
         os.system("touch %s" % fn(self.gather_targets_done))
 
                 
@@ -492,11 +511,11 @@ if __name__ == '__main__':
 
     #### Submit the MxN mapping jobs
     q_re = re.compile( r"query_([0-9]*).fofn"  )
-    t_re = re.compile( r"target_([0-9]*).fa"  )
+    t_re = re.compile( r"target_([0-9]*).fofn"  )
     query_fofns  = glob.glob(os.path.join(dist_map_dir, "query_[0-9]*.fofn"))
     query_fofns.sort()
-    target_fa  = glob.glob(os.path.join(dist_map_dir, "targets", "target_[0-9]*.fa"))
-    target_fa.sort()
+    target_fofns  = glob.glob(os.path.join(dist_map_dir, "target_[0-9]*.fofn"))
+    target_fofns.sort()
 
     URL_to_object = {}
     all_qf_out = {}
@@ -519,43 +538,31 @@ if __name__ == '__main__':
 
         query_group_done = {} 
 
-        for t_fa in target_fa:
-            t_dir, t_basename = os.path.split(t_fa)
-            t_sa = os.path.join(t_dir, t_basename.split(".")[0] + ".sa")
-            t_fa = makePypeLocalFile(t_fa)
+        for t_fofn in target_fofns:
 
-            if t_fa.URL in URL_to_object:
-                t_fa = URL_to_object[t_fa.URL]
-            else:
-                URL_to_object[t_fa.URL] = t_fa
-
-            t_sa = makePypeLocalFile(t_sa)
-        
-            if t_sa.URL in URL_to_object:
-                t_sa = URL_to_object[t_sa.URL]
-            else:
-                URL_to_object[t_sa.URL] = t_sa
-
+            t_dir, t_basename = os.path.split(t_fofn)
             t_sn = int(t_re.match( t_basename ).group(1))
-
+            t_fofn = makePypeLocalFile(t_fofn)
 
             job_done = os.path.join( mapping_data_dir, "q%05d_t%05d_done" % (q_sn, t_sn) ) 
             job_done = makePypeLocalFile( job_done)
             query_group_done["q%05d_t%05d_done" % (q_sn, t_sn)] = job_done
 
-            inputs = { "query_fofn" : q_fofn, "target_fa": t_fa, "target_sa": t_sa }
+            if t_fofn.URL in URL_to_object:
+                t_fofn = URL_to_object[t_fofn.URL]
+            else:
+                URL_to_object[t_fofn.URL] = t_fofn 
+
+            inputs = { "query_fofn" : q_fofn, "target_fofn": t_fofn}
             outputs = { "job_done": job_done }
             parameters = { "mapping_data_dir": mapping_data_dir, "q_sn": q_sn, "t_sn": t_sn, "config":config }
         
-            #for testing 
-            #task_decorator = PypeTask(inputs = inputs, outputs = outputs, parameters = parameters, TaskType = PypeTaskBase )
-            #task() 
             make_mapping_task = PypeTask(inputs = inputs, 
                                  outputs = outputs, 
                                  parameters = parameters, 
                                  TaskType = PypeThreadTaskBase,
                                  URL = "task://localhost/mapping_task_q%05d_t%05d" % (q_sn, t_sn) )
-            mapping_task = make_mapping_task ( blasr_align )
+            mapping_task = make_mapping_task ( qrm_align )
             wf.addTask(mapping_task)
 
         qf_out = os.path.join( mapping_data_dir, "qf%05d.m4" % q_sn ) 
@@ -628,57 +635,54 @@ if __name__ == '__main__':
                 print >> f, fqn
     wf.addTask(gather_pr)
 
-    ca_done = os.path.join( celera_asm_dir, "ca_done"  ) 
-    ca_done = makePypeLocalFile(ca_done)
+
+    fca_done = os.path.join( falcon_asm_dir, "fca_done"  ) 
+    fca_done = makePypeLocalFile(fca_done)
     @PypeTask(inputs = {"pr_fofn": pr_fofn}, 
-              outputs = {"ca_done": ca_done},   
-              parameters = {"config": config, "ca_dir": celera_asm_dir},
+              outputs = {"fca_done": fca_done},   
+              parameters = {"config": config, "fca_dir": falcon_asm_dir},
               TaskType = PypeThreadTaskBase)
 
-    def run_CA(self):
+    def run_FCA(self):
         from pbcore.io import FastaReader
-        ca_dir = self.parameters["ca_dir"]
+        fca_dir = self.parameters["fca_dir"]
         config = self.parameters["config"]
         install_prefix = config["install_prefix"]
-        sge_option_ca = config["sge_option_ca"]
-        use_CA_spec = config["use_CA_spec"]
-    
-        fastq_fn = os.path.abspath(os.path.join(ca_dir, "preads.fastq"))
-        with open(fastq_fn, "w") as fq:
+        sge_option_fca = config["sge_option_fca"]
+
+        fasta_fn = os.path.abspath(os.path.join(fca_dir, "preads.fa"))
+        with open(fasta_fn, "w") as fa_f:
             with open(fn(self.pr_fofn)) as fa_fofn:
                 for fan in fa_fofn:
                     fan = fan.strip()
                     fan_h = FastaReader(fan)
                     for r in fan_h:
-                        fq.write("@"+r.name+"\n")
-                        fq.write( r.sequence+"\n")
-                        fq.write( "+" + "\n" )
-                        fq.write( "".join( [chr(33+24)] * len(r.sequence) ) + "\n" )
-
-        ca_cmd  = "cd %s\n" % ca_dir
-        ca_cmd += "fastqToCA -technology sanger -type sanger -libraryname pr_long -reads %s/preads.fastq > preads.frg\n" % ca_dir
-        if use_CA_spec == "":
-            ca_cmd += "runCA -d . -p asm -s {install_prefix}/etc/asm.spec  preads.frg\n".format( install_prefix = install_prefix )
-        else:
-            ca_cmd += "runCA -d . -p asm -s {CA_spec}  preads.frg\n".format( CS_spec = use_CA_spec )
+                        if len(r.sequence) > 8000:
+                            fa_f.write(">"+r.name+"\n")
+                            fa_f.write( r.sequence+"\n")
+    
+        fca_cmd  = "cd %s\n" % fca_dir
+        fca_cmd += "falcon_overlap.py --n_core 24 --d_core 24 preads.fa > preads.ovlp\n"
+        fca_cmd += "falcon_asm.py preads.ovlp preads.fa\n"
+        fca_cmd += "falcon_fixasm.py\n"
                                                                                                                          
 
-        script_fn = os.path.join( ca_dir, "runca.sh")
+        script_fn = os.path.join( fca_dir, "runfca.sh")
         with open(script_fn,"w") as script_file:
             script_file.write("source {install_prefix}/bin/activate\n".format(install_prefix = install_prefix))
-            script_file.write(ca_cmd+"\n")
-            script_file.write("touch %s" % fn(self.ca_done))
+            script_file.write(fca_cmd+"\n")
+            script_file.write("touch %s" % fn(self.fca_done))
 
         job_name = self.URL.split("/")[-1]
         job_name += str(uuid.uuid1())[:8]
         job_data = {"job_name": job_name,
                     "cwd": os.getcwd(),
-                    "sge_option": sge_option_ca,
+                    "sge_option": sge_option_fca,
                     "script_fn": script_fn }
         run_script(job_data, job_type = config["job_type"])
-        wait_for_file( fn(self.ca_done), task=self, job_name=job_name )
+        wait_for_file( fn(self.fca_done), task=self, job_name=job_name )
 
-    wf.addTask(run_CA)
+    wf.addTask(run_FCA)
 
     with open("./workflow.dot","w") as f:
         print >>f, wf.graphvizShortNameDot
@@ -687,6 +691,8 @@ if __name__ == '__main__':
         wf.refreshTargets([qm4_fofn])
     elif config["target"] == "pre_assembly":
         wf.refreshTargets([pr_fofn])
+    elif config["target"] == "falcon_asm":
+        wf.refreshTargets() #all
     else:
         wf.refreshTargets() #all
 
