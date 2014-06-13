@@ -63,14 +63,17 @@ with open(fofn) as fnlist:
                 if hash(q_id) % num_chunk != chunk_n:
                     continue
                 score = int(l[2])
+                len_ = int(l[6]) - int(l[5])
                 if score > -1000: continue
                 t_l = int(l[11])
                 if t_l < length_cutoff : continue
                 query_data.setdefault(q_id, [])
                 if len(query_data[q_id]) < best_n:
                     heapq.heappush( query_data[q_id], (-score, l) )
+                    #heapq.heappush( query_data[q_id], (len_, l) )
                 else:
                     heapq.heappushpop( query_data[q_id], (-score, l) )
+                    #heapq.heappushpop( query_data[q_id], (len_, l) )
 
 with open(output_fn,"w") as out_f:
     for q_id in query_data:

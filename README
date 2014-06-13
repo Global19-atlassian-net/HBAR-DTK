@@ -1,7 +1,20 @@
 What is HBAR-DTK?
 ==================
 
-Last Modifide : June 11, 2013
+Update: Jun 13, 2014
+
+The basic of this code base does not changed much. A new workflow script
+(HBAR_WF3.py) that use the latest branch 0.1.3 Falcon
+(https://github.com/PacificBiosciences/FALCON).  for doing intial overlapping,
+consensus and assembly is provided. The dependence is updated and the 2nd minor
+version number is bumped up to reflect the changes. Please understanding this
+code is highly experimental by its nature. If something may not work for you
+out of the box, I encourage you to see if you can find a fix to fit your need
+and find a better way to do things. Or, you can submit some of your problem to
+the Issue tracking page such that I can address them if possible.
+
+
+Original Date: June 11, 2013
 
 
 HBAR-DTK stands for "Hierarchical-Based AssembleR Development ToolKit". The
