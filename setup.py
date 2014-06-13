@@ -2,8 +2,8 @@ from setuptools import setup, Extension, find_packages
 import sys
 
 setup(
-    name = 'pbtools.hbar-dtk',
-    version='0.1.5',
+    name = 'hbar-dtk',
+    version='0.1.7',
     author='pbiDevNet',
     author_email='pbiDevNet@pacificbiosciences.com',
     license='LICENCES',
@@ -31,7 +31,7 @@ setup(
     install_requires=[
            "pbcore >= 0.6.1",
            "pypeflow >= 0.1.1",
-           "pbtools.pbdagcon >= 0.2.1",
-           "pbtools.pbh5tools >= 0.75.0"
+           "pbtools.pbdagcon >= 0.2.3",
+           "pbh5tools >= 0.8.0"
     ]
     )

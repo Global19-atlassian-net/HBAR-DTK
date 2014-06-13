@@ -189,6 +189,7 @@ def qrm_align(self):
     t_sn = self.parameters["t_sn"]
     out_fn = os.path.join( output_dir, "q%05d_t%05d.m4" % (q_sn, t_sn))
     script_fn = os.path.join( output_dir, "q%05d_t%05d.sh" % (q_sn, t_sn))
+    log_fn = os.path.join( output_dir, "q%05d_t%05d.log" % (q_sn, t_sn))
     config = self.parameters["config"]
     #blasr_opt = config["blasr_opt"]
     qrm_opt = config["qrm_opt"]
@@ -203,7 +204,9 @@ def qrm_align(self):
 
     with open(script_fn,"w") as script_file:
         script_file.write("source {install_prefix}/bin/activate\n".format(install_prefix = install_prefix))
+        script_file.write("date > %s \n" % log_fn)
         script_file.write(qrm_cmd+"\n")
+        script_file.write("date >> %s \n" % log_fn)
         script_file.write("touch %s" % fn(self.job_done))
 
     job_name = self.URL.split("/")[-1]
@@ -268,7 +271,7 @@ def get_preads(self):
     script_fn = os.path.join( pa_dir, "pa%05d.sh" % pa_chunk)
     with open(script_fn,"w") as script_file:
         script_file.write("source {install_prefix}/bin/activate\n".format(install_prefix = install_prefix))
-        script_file.write("""get_rdata.py %s %s %s %d %d %d %d %d %d %d | falcon_wrap.py > %s \n""" % (q_fofn_fn, t_fofn_fn, qm4_fofn_fn,
+        script_file.write("""get_rdata.py %s %s %s %d %d %d %d %d %d %d | falcon_sense.py > %s \n""" % (q_fofn_fn, t_fofn_fn, qm4_fofn_fn,
                                                                                           bestn, pa_chunk, preassembly_num_chunk,
                                                                                           min_cov, max_cov, trim_align, trim_plr,
                                                                                           fn(pa_out) ) )
@@ -318,7 +321,7 @@ def get_config(config_fn):
 
     qrm_opt = """ --min_len 500 --n_core 24 --d_core 3"""
     if config.has_option('General', 'qrm_opt'):
-        blasr_opt = config.get('General', 'qrm_opt')
+        qrm_opt = config.get('General', 'qrm_opt')
 
     tmpdir = "/tmp"
     if config.has_option('General', 'tmpdir'):
@@ -662,7 +665,7 @@ if __name__ == '__main__':
                             fa_f.write( r.sequence+"\n")
     
         fca_cmd  = "cd %s\n" % fca_dir
-        fca_cmd += "falcon_overlap.py --n_core 24 --d_core 3 preads.fa | grep -v none > preads.ovlp\n"
+        fca_cmd += "falcon_overlap.py --min_len 8000 --n_core 24 --d_core 3 preads.fa | grep -v none > preads.ovlp\n"
         fca_cmd += "falcon_asm.py preads.ovlp preads.fa\n"
         fca_cmd += "falcon_fixasm.py\n"
                                                                                                                          
