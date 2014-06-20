@@ -12,8 +12,7 @@ from pbcore.io.FastaIO import FastaReader, FastaWriter, FastaRecord
 BlasrM4 = namedtuple('BlasrM4', ['qname', 'tname', 'score', 'pctsimilarity', 
                                  'qstrand', 'qstart', 'qend', 'qseqlength',
                                  'tstrand', 'tstart', 'tend', 'tseqlength',
-                                 'mapqv', 'ncells', 'clusterScore', 
-                                 'probScore', 'numSigClusters'])
+                                 'mapqv'])
 
 MIN_LENGTH = 500
 MIN_SIMILARITY = 0.9
