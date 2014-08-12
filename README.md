@@ -117,14 +117,6 @@ Some convenient scripts:
                where "20000" is the length to align at the ends of each contigs and
                "/tmp" is the location for the temporary output used to run ``blasr`` 
 
-    ContaminationTrimmer.py:
-        
-        A script contributed by Brett Bowman for trimming out vector sequences
-        or contamination using blasr.  It is useful for pooled fosmid or BAC
-        sequence assembly. It is a different coding style.
-
-        check ``ContaminationTrimmer.py -h`` for usage
-
 
 Most of these code was written on-fly when it was necessary. More handy scripts
 may be added into the repository in the near furture if they are useful to make
