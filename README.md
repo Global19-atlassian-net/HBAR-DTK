@@ -4,7 +4,7 @@ What is HBAR-DTK?
 Update: April, 2015
 
 Active development has moved to FALCON https://github.com/PacificBiosciences/FALCON
-which offers a full pipeline for large genome and diploid assembly. HGAP style assemble
+which offers a full pipeline for large genome and diploid assembly. HGAP style assembly
 of smaller genomes, is now fully supported in the production SMRT Analysis software.
 
 Update: Jun 13, 2014
